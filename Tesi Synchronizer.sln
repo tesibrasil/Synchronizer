@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31005.135
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tesi Synchronizer", "Tesi Synchronizer\Tesi Synchronizer.csproj", "{D9A18937-D63A-4A94-9C48-4FE83ED59721}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D9A18937-D63A-4A94-9C48-4FE83ED59721}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D9A18937-D63A-4A94-9C48-4FE83ED59721}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D9A18937-D63A-4A94-9C48-4FE83ED59721}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D9A18937-D63A-4A94-9C48-4FE83ED59721}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B0F851DE-D559-40E4-8994-2C81D34EE59A}
+	EndGlobalSection
+	GlobalSection(TeamFoundationVersionControl) = preSolution
+		SccNumberOfProjects = 2
+		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
+		SccTeamFoundationServer = https://tesibrasil.visualstudio.com/
+		SccLocalPath0 = .
+		SccProjectUniqueName1 = Tesi\u0020Synchronizer\\Tesi\u0020Synchronizer.csproj
+		SccProjectName1 = Tesi\u0020Synchronizer
+		SccLocalPath1 = Tesi\u0020Synchronizer
+	EndGlobalSection
+EndGlobal

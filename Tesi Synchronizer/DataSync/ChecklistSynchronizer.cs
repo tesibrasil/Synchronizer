@@ -2,6 +2,10 @@
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Diagnostics;
+using Tesi_Synchronizer.Models;
+using Dapper;
+using System.Data;
+using System.Linq;
 
 namespace Synchronizer
 {
@@ -15,6 +19,7 @@ namespace Synchronizer
         public bool sucesso = false;
         public TimeSpan t;
 
+        public IDbTransaction CurrentTransaction { get; private set; }
 
         public ChecklistSychronizer(string keyDestino, ref Logger list)
         {
@@ -33,9 +38,9 @@ namespace Synchronizer
             logger.Log(Logger.Level.Info, string.Format("Versão do Synchronizer {0}", version));
 
             connStrFonte = Configuration.GetSourceConnectionByKey("Fonte");
-            //connStrFonte = "Data Source=LOCALHOST;User ID=sa;Password=nautilus;Initial Catalog=ECOPLUS_CHECKLIST;";
+
             connStrDestino = Configuration.GetDestConnectionByKey(keyDestino);
-            //connStrDestino = "Data Source=LOCALHOST;User ID=sa;Password=nautilus;Initial Catalog=ECOPLUS_REP2;";
+
             catalog = connStrFonte.Split(';')[3].Split('=')[1].ToString();
             logger.Log(Logger.Level.Verbose, string.Format("Sincronização [Checklist] [{0} -> {1}]", keyFonte, keyDestino));
 
@@ -97,25 +102,6 @@ namespace Synchronizer
                     return;
                 }
 
-                //////////////////////////////
-                /// Deltando Linked Server ///             
-                //////////////////////////////
-
-                DropLinkedServer(connStrDestino, true);
-
-                /////////////////////////////
-                /// Criando Linked Server ///
-                /////////////////////////////
-
-                logger.Log(Logger.Level.Verbose, "Configurando LinkedServer");
-                if (!CreateLinkedServer(connStrFonte, connStrDestino))
-                {
-                    logger.Log(Logger.Level.Critical, "Não Foi Possivel Estabelecer uma conexão LinkedServer. A Sincronização não será realizada");
-                    new ChecklistRollback(keyDestino, ref list);
-                    watch.Stop();
-                    t = watch.Elapsed;
-                    return;
-                }
 
                 ////////////////////////////
                 /// CHECKLIST ///
@@ -133,9 +119,9 @@ namespace Synchronizer
                     return;
                 }
 
-                ////////////////////////////
-                /// CHECKLISTITEMREGOLE ///
-                ////////////////////////////
+                //////////////////////////////
+                ///// CHECKLISTITEMREGOLE ///
+                //////////////////////////////
 
                 if (!CopyTable(
                     "CHECKLISTITEMREGOLE",
@@ -149,9 +135,9 @@ namespace Synchronizer
                     return;
                 }
 
-                ////////////////////////////
-                /// CHECKLISTESAMI ///
-                ////////////////////////////
+                ////////////////////////////////
+                /////// CHECKLISTESAMI ///
+                ////////////////////////////////
 
                 if (!CopyTable(
                     "CHECKLISTESAMI",
@@ -165,9 +151,9 @@ namespace Synchronizer
                     return;
                 }
 
-                ////////////////////////////
-                /// CODICICLASSIFICAZIONEDIAGNOST ///
-                ////////////////////////////
+                ////////////////////////////////
+                /////// CODICICLASSIFICAZIONEDIAGNOST ///
+                ////////////////////////////////
 
                 if (!CopyTable(
                     "CODICICLASSIFICAZIONEDIAGNOST",
@@ -181,9 +167,9 @@ namespace Synchronizer
                     return;
                 }
 
-                ////////////////////////////
-                /// CHECKLISTITEM ///
-                ////////////////////////////
+                //////////////////////////////
+                ///// CHECKLISTITEM ///
+                //////////////////////////////
 
                 if (!CopyTable(
                     "CHECKLISTITEM",
@@ -197,11 +183,6 @@ namespace Synchronizer
                     return;
                 }
 
-                //////////////////////////////
-                /// Deltando Linked Server ///             
-                //////////////////////////////
-
-                DropLinkedServer(connStrDestino);
                 sucesso = true;
                 watch.Stop();
                 t = watch.Elapsed;
@@ -244,106 +225,14 @@ namespace Synchronizer
             return open;
         }
 
-        private bool CreateLinkedServer(string connStrFonte, string connStrDestino)
-        {
-            bool ok = false;
-            //   var connSplit = connStrFonte.Split(';');
-            var connSplit = connStrDestino.Split(';');
-            string fonteServer = connSplit[0].Split('=')[1].ToString();
-            string fonteUser = connSplit[1].Split('=')[1].ToString();
-            string fontePass = connSplit[2].Split('=')[1].ToString();
-            try
-            {
-                using (SqlConnection connFonte = new SqlConnection(connStrFonte))
-                //using (SqlConnection connDestino = new SqlConnection(connStrDestino))
-                {
 
-                    try
-                    {
-                        //  string sp_addlinkedserver = "EXEC sp_addlinkedserver @server='SRV'";
-                        string sp_addlinkedserver = $"EXEC sp_addlinkedserver @server='{fonteServer}'";
-                        //    using (SqlCommand cmd = new SqlCommand(sp_addlinkedserver, connDestino))
-                        using (SqlCommand cmd = new SqlCommand(sp_addlinkedserver, connFonte))
-                        {
-                            cmd.Connection.Open();
-                            cmd.ExecuteNonQuery();
-                            cmd.Connection.Close();
-                        };
-                        logger.Log(Logger.Level.Debug, "LinkedServer Criado");
 
-                        string sp_setnetname = string.Format($"EXEC sp_setnetname '{fonteServer}','{fonteServer}'");
-                        //       string sp_setnetname = string.Format("EXEC sp_setnetname 'SRV','{0}'", fonteServer);
-                        using (SqlCommand cmd = new SqlCommand(sp_setnetname, connFonte))
-                        {
-                            cmd.Connection.Open();
-                            cmd.ExecuteNonQuery();
-                            cmd.Connection.Close();
-                        };
-                        string sp_addlinkedsrvlogin = string.Format($"sp_addlinkedsrvlogin '{fonteServer}', 'false', null, '{fonteUser}', '{fontePass}'");
-                        //   string sp_addlinkedsrvlogin = string.Format("sp_addlinkedsrvlogin 'SRV', 'false', null, '{0}', '{1}'", fonteUser, fontePass);
-                        logger.Log(Logger.Level.Debug, "Servidor Registrado");
 
-                        using (SqlCommand cmd = new SqlCommand(sp_addlinkedsrvlogin, connFonte))
-                        {
-                            cmd.Connection.Open();
-                            cmd.ExecuteNonQuery();
-                            cmd.Connection.Close();
-                        };
-                        logger.Log(Logger.Level.Debug, "Credenciais Registradas");
-
-                        ok = true;
-
-                    }
-                    catch (Exception e)
-                    {
-                        logger.Log(Logger.Level.Error, "Erro Durante Registro de LinkedServer");
-                        DropLinkedServer(connStrDestino);
-                        ok = false;
-                    }
-                    connFonte.Close();
-                    connFonte.Dispose();
-                    //connDestino.Close();
-                    //connDestino.Dispose();
-                };
-            }
-            catch
-            {
-                logger.Log(Logger.Level.Error, "Não Foi Possivel Conectar ao Servidor de Destino");
-                ok = false;
-            }
-            return ok;
-        }
-
-        private void DropLinkedServer(string connStr, bool inicio = false)
-        {
-            try
-            {
-                string sp_addlinkedserver = "EXEC sp_dropserver 'SRV', 'droplogins'";
-                using (SqlConnection conn = new SqlConnection(connStr))
-                {
-                    using (SqlCommand cmd = new SqlCommand(sp_addlinkedserver, conn))
-                    {
-                        cmd.Connection.Open();
-                        cmd.ExecuteNonQuery();
-                        cmd.Connection.Close();
-                    };
-                    conn.Close();
-                    conn.Dispose();
-                };
-                logger.Log(Logger.Level.Debug, "LinkedServer Deletado");
-            }
-            catch (Exception e)
-            {
-                if (!inicio)
-                    logger.Log(Logger.Level.Error, "Erro ao Deletar LinkedServer");
-            }
-        }
-
-        private bool CopyTable(string table, string columns, string connStrDestino, string catalog, string fonte)
+        private bool CopyTable(string table, string columns, string connStrDestino, string catalog, string connStrFonte)
         {
             ///////
 
-            var connSplit = fonte.Split(';');
+            var connSplit = connStrFonte.Split(';');
             string fonteServer = connSplit[0].Split('=')[1].ToString();
             string fonteUser = connSplit[1].Split('=')[1].ToString();
             string fontePass = connSplit[2].Split('=')[1].ToString();
@@ -359,6 +248,12 @@ namespace Synchronizer
 
             ///////
 
+            List<Checklist> checklists = null;
+            List<CheckListItemRegole> checklistItemRegole = null;
+            List<CheckListEsami> checklistEsami = null;
+            List<CheckListItem> checklistItem = null;
+            List<CodiciClassificazioneDiagnost> codiciClassificazioneDiagnost = null;
+
 
             string tempName = "#TEMP_" + table;
             string masterName = "MASTER" + table;
@@ -366,26 +261,98 @@ namespace Synchronizer
 
             bool copy = false;
             int affectedRows = 0;
+
             try
             {
+                using (SqlConnection connFonte = new SqlConnection(connStrFonte))
+                {
+                    connFonte.Open();
+                    // COPIA TABELA DA FONTE PARA MEMÓRIA //
+
+                    try
+                    {
+                        logger.Log(Logger.Level.Verbose, $"Copiando {table} do Banco Fonte");
+
+                        switch (table)
+                        {
+                            case "CHECKLIST":
+
+                                checklists = connFonte.Query<Checklist>($"SELECT {columns} FROM {table}",
+                                             transaction: CurrentTransaction,
+                                             commandType: CommandType.Text).ToList();
+
+                                affectedRows = checklists.Count();
+                                logger.Log(Logger.Level.Info, affectedRows + " rows copiadas");
+
+                                break;
+
+                            case "CHECKLISTITEMREGOLE":
+
+                                checklistItemRegole = connFonte.Query<CheckListItemRegole>($"SELECT {columns} FROM {table}",
+                                                      transaction: CurrentTransaction,
+                                                      commandType: CommandType.Text).ToList();
+
+                                affectedRows = checklistItemRegole.Count();
+                                logger.Log(Logger.Level.Info, affectedRows + " rows copiadas");
+
+                                break;
+
+                            case "CHECKLISTESAMI":
+
+                                checklistEsami = connFonte.Query<CheckListEsami>($"SELECT {columns} FROM {table}",
+                                                 transaction: CurrentTransaction,
+                                                 commandType: CommandType.Text).ToList();
+
+                                affectedRows = checklistEsami.Count();
+                                logger.Log(Logger.Level.Info, affectedRows + " rows copiadas");
+
+                                break;
+
+                            case "CODICICLASSIFICAZIONEDIAGNOST":
+
+                                codiciClassificazioneDiagnost = connFonte.Query<CodiciClassificazioneDiagnost>($"SELECT {columns} FROM {table}",
+                                                 transaction: CurrentTransaction,
+                                                 commandType: CommandType.Text).ToList();
+
+                                affectedRows = codiciClassificazioneDiagnost.Count();
+                                logger.Log(Logger.Level.Info, affectedRows + " rows copiadas");
+
+                                break;
+
+                            case "CHECKLISTITEM":
+
+                                checklistItem = connFonte.Query<CheckListItem>($"SELECT {columns} FROM {table}",
+                                                transaction: CurrentTransaction,
+                                                commandType: CommandType.Text).ToList();
+
+                                affectedRows = checklistItem.Count();
+                                logger.Log(Logger.Level.Info, affectedRows + " rows copiadas");
+
+                                break;
+                        }
+
+                    }
+                    catch (Exception e)
+                    {
+                        logger.Log(Logger.Level.Error, "Ocorreu um erro durante a Sincronização da Tabela: " + e.Message);
+                        logger.Log(Logger.Level.Error, e.StackTrace);
+
+                        return false;
+                    }
+                }
+
                 using (SqlConnection connDestino = new SqlConnection(connStrDestino))
-                //  using (SqlConnection connDestino = new SqlConnection(fonte))
                 {
                     connDestino.Open();
-                    // COPIA TABELA DA FONTE PARA TABELA TEMPORARIA NO DESTINO //
+
+                    // COPIA OS DADOS DA TABELA DE DESTINO PARA UMA TABELA TEMPORÁRIA //
                     using (SqlCommand cmd = new SqlCommand())
                     {
                         logger.Log(Logger.Level.Verbose, "Copiando " + table);
-                        cmd.Connection = connDestino;
-                        //          cmd.CommandText = string.Format("SELECT * INTO {0} FROM (SELECT {1} FROM [SRV].[{2}].[dbo].[{3}]) AS {4}",
+                        cmd.Connection = connDestino;                        
                         cmd.CommandText = string.Format("SELECT * INTO {0} FROM (SELECT {1} FROM [{2}].[dbo].[{3}]) AS {4}",
-                                      tempName,
-                            columns,
-                          //  catalog,
-                          Destcatalog,
-                            table,
-                            masterName
-                            );
+                                                         tempName, columns, Destcatalog, table, masterName);
+
                         affectedRows = cmd.ExecuteNonQuery();
                         logger.Log(Logger.Level.Info, affectedRows + " rows copiadas");
                     };
@@ -403,6 +370,7 @@ namespace Synchronizer
                     {
                         // CASO A TABELA JA TENHA SIDO DELETADA //
                     }
+
                     // CRIA UM NOVO ROLLBACK PARA A TABELA //
                     using (SqlCommand cmd = new SqlCommand())
                     {
@@ -412,6 +380,7 @@ namespace Synchronizer
                         affectedRows = cmd.ExecuteNonQuery();
                         logger.Log(Logger.Level.Info, affectedRows + " rows copiadas");
                     };
+
                     // APAGA OS DATOS ANTIGOS DA TABELA DE DESTINO //
                     using (SqlCommand cmd = new SqlCommand())
                     {
@@ -441,92 +410,224 @@ namespace Synchronizer
                         cmd.CommandText = string.Format("DELETE FROM {0}", table);
                         cmd.ExecuteNonQuery();
 
-                        //cmd.CommandText = string.Format("alter table CHECKLIST check constraint all", table);
-                        //cmd.ExecuteNonQuery();
-                        //cmd.CommandText = string.Format("alter table CHECKLISTITEMREGOLE check constraint all", table);
-                        //cmd.ExecuteNonQuery();
-                        //cmd.CommandText = string.Format("alter table CHECKLISTESAMI check constraint all", table);
-                        //cmd.ExecuteNonQuery();
-                        //cmd.CommandText = string.Format("alter table CODICICLASSIFICAZIONEDIAGNOST check constraint all", table);
-                        //cmd.ExecuteNonQuery();
-                        //cmd.CommandText = string.Format("alter table CHECKLISTITEM check constraint all", table);
-                        //cmd.ExecuteNonQuery();
-                        //logger.Log(Logger.Level.Debug, "Nocheck desativado");
-
                         try
                         {
-                            cmd.CommandText = string.Format("SET IDENTITY_INSERT {0} OFF", table);
-                            logger.Log(Logger.Level.Debug, "Identity OFF");
-                            cmd.ExecuteNonQuery();
-                        }
-                        catch (Exception e) { }
-                    };
+                            logger.Log(Logger.Level.Debug, $"Iniciando inserção de dados na tabela {table}...");
 
-                    using (SqlConnection connFonte = new SqlConnection(fonte))
-                    {
+                            int count = 1;
 
-                        connFonte.Open();
-                        //fechar conexao
-                        // COPIA PARA A TABELA DE DESTINO OS NOVOS VALORES OBTINOS NA FONTE //
-                        using (SqlCommand cmd = new SqlCommand())
-                        {
-                            cmd.Connection = connFonte;
-                            cmd.CommandTimeout = 0;
-                            try
+                            string QueryText = $"INSERT INTO [{Destcatalog}].[dbo].[{table}] ({columns}) VALUES ";
+
+                            int total = 0;
+                            int pack = 0;
+                            int progresso = 0;
+                            int ultimoProgresso = 0;
+
+                            switch (table)
                             {
-                                cmd.CommandText = string.Format("SET IDENTITY_INSERT {0} ON", table);
-                                cmd.ExecuteNonQuery();
-                                logger.Log(Logger.Level.Debug, "Identity ON");
+                                case "CHECKLIST":
+
+                                    total = checklists.Count;
+
+                                    foreach (var item in checklists)
+                                    {
+                                        QueryText += $"\n({item.ID},'{item.Codice}','{item.Descrizione}',{item.Presentazione},{(item.ItemAlmenouno ? 1 : 0)},{(item.ItemPiudiuno ? 1 : 0)},{item.CampoCL},{item.Ordine},{(item.Eliminato ? 1 : 0)},{item.UO}),";
+                                    
+                                        if(count == 1000) 
+                                        {
+                                            QueryText = QueryText.Substring(0, (QueryText.Length - 1));
+
+                                            connDestino.Query(QueryText,
+                                                transaction: CurrentTransaction,
+                                                commandType: CommandType.Text);
+
+                                            count = 0;
+                                            QueryText = $"INSERT INTO [{Destcatalog}].[dbo].[{table}] ({columns}) VALUES";
+
+                                            pack++;
+                                            progresso = (((pack * 1000) * 100) / total);
+
+                                            if (progresso != ultimoProgresso)
+                                                logger.Log(Logger.Level.Debug, $"Inserção de dados na tabela {table} em {progresso}%... ");
+
+                                            ultimoProgresso = progresso;
+                                        }
+
+                                        count++;
+                                    }
+
+                                    break;
+
+                                case "CHECKLISTITEMREGOLE":
+
+                                    total = checklistItemRegole.Count;
+
+                                    foreach (var item in checklistItemRegole)
+                                    {
+                                        QueryText += $"\n({item.ID},{item.IDChecklistItem},{item.IDChecklistItemBind},{item.TipoRegola},{(item.Eliminato ? 1 : 0)}),";
+
+                                        if (count == 1000)
+                                        {
+                                            QueryText = QueryText.Substring(0, (QueryText.Length - 1));
+
+                                            connDestino.Query(QueryText,
+                                                transaction: CurrentTransaction,
+                                                commandType: CommandType.Text);
+
+                                            count = 0;
+                                            QueryText = $"INSERT INTO [{Destcatalog}].[dbo].[{table}] ({columns}) VALUES";
+
+                                            pack++;
+                                            progresso = (((pack * 1000) * 100) / total);
+
+                                            if (progresso != ultimoProgresso)
+                                                logger.Log(Logger.Level.Debug, $"Inserção de dados na tabela {table} em {progresso}%... ");
+
+                                            ultimoProgresso = progresso;
+                                        }
+
+                                        count++;
+                                    }
+
+                                    break;
+
+                                case "CHECKLISTESAMI":
+
+                                    total = checklistEsami.Count;
+
+                                    foreach (var item in checklistEsami)
+                                    {
+                                        QueryText += $"\n({item.ID},{item.IDChecklist},{item.IDTipoEsame},{(item.Eliminato ? 1 : 0)}),";
+
+                                        if (count == 1000)
+                                        {
+                                            QueryText = QueryText.Substring(0, (QueryText.Length - 1));
+
+                                            connDestino.Query(QueryText,
+                                                transaction: CurrentTransaction,
+                                                commandType: CommandType.Text);
+
+                                            count = 0;
+                                            QueryText = $"INSERT INTO [{Destcatalog}].[dbo].[{table}] ({columns}) VALUES";
+
+                                            pack++;
+                                            progresso = (((pack * 1000) * 100) / total);
+
+                                            if (progresso != ultimoProgresso)
+                                                logger.Log(Logger.Level.Debug, $"Inserção de dados na tabela {table} em {progresso}%... ");
+
+                                            ultimoProgresso = progresso;
+                                        }
+
+                                        count++;
+                                    }
+
+                                    break;
+
+                                case "CODICICLASSIFICAZIONEDIAGNOST":
+
+                                     total = codiciClassificazioneDiagnost.Count;
+
+                                    foreach (var item in codiciClassificazioneDiagnost)
+                                    {
+                                        QueryText += $"\n({item.ID},'{item.Codice}','{item.Descrizione}','{item.Classificazione}',{(item.Positivita ? 1 : 0)},{item.Score},{item.IDTipoEsame},{(item.Eliminato ? 1 : 0)},{item.UO}),";
+                                       
+                                        if (count == 1000)
+                                        {
+                                            QueryText = QueryText.Substring(0, (QueryText.Length - 1));
+
+                                            connDestino.Query(QueryText,
+                                                transaction: CurrentTransaction,
+                                                commandType: CommandType.Text);
+
+                                            count = 0;
+                                            QueryText = $"INSERT INTO [{Destcatalog}].[dbo].[{table}] ({columns}) VALUES";
+
+                                            pack++;
+                                            progresso = (((pack * 1000) * 100) / total);
+
+                                            if (progresso != ultimoProgresso)
+                                                logger.Log(Logger.Level.Debug, $"Inserção de dados na tabela {table} em {progresso}%... ");
+
+                                            ultimoProgresso = progresso;
+                                        }
+
+                                        count++;
+                                    }
+
+                                    break;
+
+                                case "CHECKLISTITEM":
+
+                                     total = checklistItem.Count;
+                                    
+                                    foreach (var item in checklistItem)
+                                    {
+                                        QueryText += $"\n({item.ID},{item.IDCheckList},{item.IDPadre},{item.Ordine},'{(item.Titolo != null ? item.Titolo.Replace("'","''") : "") }','{(item.TestoRTF != null ? item.TestoRTF.Replace("'", "''"): "")}','{(item.TestoTXT != null ?item.TestoTXT.Replace("'", "''"):"")}',{item.TestoNumeroVariabili},{(item.ItemAlmenouno ? 1 : 0)},{(item.ItemPiudiuno ? 1 : 0)},{(item.Eliminato ? 1 : 0)},{item.ClassificazioneDiagnosi},{item.IDOriginaleClonato}),";
+
+
+                                        if (count == 1000)
+                                        {
+                                            QueryText = QueryText.Substring(0, (QueryText.Length - 1));
+
+                                            connDestino.Query(QueryText,
+                                                transaction: CurrentTransaction,
+                                                commandType: CommandType.Text);
+
+                                            count = 0;
+                                            QueryText = $"INSERT INTO [{Destcatalog}].[dbo].[{table}] ({columns}) VALUES ";
+                                            
+                                            pack++;
+                                            progresso = (((pack *1000)*100)/ total);
+
+                                            if(progresso != ultimoProgresso)
+                                                 logger.Log(Logger.Level.Debug, $"Inserção de dados na tabela {table} em {progresso}%... ");
+
+                                            ultimoProgresso = progresso;
+                                        }
+
+                                        count++;
+
+                                    }
+
+                                    break;
                             }
-                            catch (Exception e) { }
 
-                            logger.Log(Logger.Level.Debug, "Sincronizando Tabelas");
-                            cmd.CommandText = string.Format($"INSERT INTO [{DestServer}].[{Destcatalog}].[dbo].[{table}] SELECT {columns} FROM {table}");
-                            affectedRows = cmd.ExecuteNonQuery();
-                            logger.Log(Logger.Level.Info, affectedRows + " rows copiadas");
-
-                            try
+                            QueryText = QueryText.Substring(0, (QueryText.Length - 1));
+                            if( QueryText.Length > 97) 
                             {
-                                cmd.CommandText = string.Format("SET IDENTITY_INSERT {0} OFF", table);
-                                logger.Log(Logger.Level.Debug, "Identity OFF");
-                                cmd.ExecuteNonQuery();
+                                connDestino.Query(QueryText,
+                                   transaction: CurrentTransaction,
+                                   commandType: CommandType.Text);
                             }
-                            catch (Exception e) { }
 
+                            logger.Log(Logger.Level.Debug, $"Fim da inserção de dados na tabela {table}.");
 
-                            logger.Log(Logger.Level.Info, table + " Sincronizada com sucesso");
-                        };
-                        connFonte.Close();
-                        connFonte.Dispose();
-                    };
+                            copy = true;
 
-                    //connDestino.Close();
-                    //connDestino.Dispose();
-
-                    using (SqlCommand cmd = new SqlCommand())
-                    {
-                        cmd.Connection = connDestino;
-                        try
-                        {
-                            cmd.CommandText = string.Format("alter table CHECKLIST check constraint all", table);
-                            cmd.ExecuteNonQuery();
-                            cmd.CommandText = string.Format("alter table CHECKLISTITEMREGOLE check constraint all", table);
-                            cmd.ExecuteNonQuery();
-                            cmd.CommandText = string.Format("alter table CHECKLISTESAMI check constraint all", table);
-                            cmd.ExecuteNonQuery();
-                            cmd.CommandText = string.Format("alter table CODICICLASSIFICAZIONEDIAGNOST check constraint all", table);
-                            cmd.ExecuteNonQuery();
-                            cmd.CommandText = string.Format("alter table CHECKLISTITEM check constraint all", table);
-                            cmd.ExecuteNonQuery();
-                            logger.Log(Logger.Level.Debug, "Nocheck desativado");
                         }
-                        catch (Exception e) { }
+                        catch (Exception e)
+                        {
+                            logger.Log(Logger.Level.Error, "Ocorreu um erro durante a Sincronização da Tabela: " + e.Message);
+                            logger.Log(Logger.Level.Error, e.StackTrace);
+                            return false;
+                        }
+
+
+                       cmd.CommandText = string.Format("alter table CHECKLIST check constraint all", table);
+                       cmd.ExecuteNonQuery();
+                       cmd.CommandText = string.Format("alter table CHECKLISTITEMREGOLE check constraint all", table);
+                       cmd.ExecuteNonQuery();
+                       cmd.CommandText = string.Format("alter table CHECKLISTESAMI check constraint all", table);
+                       cmd.ExecuteNonQuery();
+                       cmd.CommandText = string.Format("alter table CODICICLASSIFICAZIONEDIAGNOST check constraint all", table);
+                       cmd.ExecuteNonQuery();
+                       cmd.CommandText = string.Format("alter table CHECKLISTITEM check constraint all", table);
+                       cmd.ExecuteNonQuery();
+                       logger.Log(Logger.Level.Debug, "Nocheck desativado");
+
                     }
                 }
-
-               
-                copy = true;
-
             }
             catch (Exception e)
             {
@@ -536,6 +637,7 @@ namespace Synchronizer
             }
 
             return copy;
+
         }
     }
 }

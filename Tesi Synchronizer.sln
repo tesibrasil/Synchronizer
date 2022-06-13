@@ -8,27 +8,24 @@ EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
 		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{D9A18937-D63A-4A94-9C48-4FE83ED59721}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{D9A18937-D63A-4A94-9C48-4FE83ED59721}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D9A18937-D63A-4A94-9C48-4FE83ED59721}.Debug|x64.ActiveCfg = Debug|x64
+		{D9A18937-D63A-4A94-9C48-4FE83ED59721}.Debug|x64.Build.0 = Debug|x64
 		{D9A18937-D63A-4A94-9C48-4FE83ED59721}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D9A18937-D63A-4A94-9C48-4FE83ED59721}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D9A18937-D63A-4A94-9C48-4FE83ED59721}.Release|x64.ActiveCfg = Release|x64
+		{D9A18937-D63A-4A94-9C48-4FE83ED59721}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {B0F851DE-D559-40E4-8994-2C81D34EE59A}
-	EndGlobalSection
-	GlobalSection(TeamFoundationVersionControl) = preSolution
-		SccNumberOfProjects = 2
-		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
-		SccTeamFoundationServer = https://tesibrasil.visualstudio.com/
-		SccLocalPath0 = .
-		SccProjectUniqueName1 = Tesi\u0020Synchronizer\\Tesi\u0020Synchronizer.csproj
-		SccProjectName1 = Tesi\u0020Synchronizer
-		SccLocalPath1 = Tesi\u0020Synchronizer
 	EndGlobalSection
 EndGlobal

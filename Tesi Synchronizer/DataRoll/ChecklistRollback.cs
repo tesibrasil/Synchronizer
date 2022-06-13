@@ -246,17 +246,17 @@ namespace Synchronizer
                         cmd.CommandText = "DELETE FROM " + table;
                         cmd.ExecuteNonQuery();
 
-                        cmd.CommandText = string.Format("alter table CHECKLIST check constraint all", table);
-                        cmd.ExecuteNonQuery();
-                        cmd.CommandText = string.Format("alter table CHECKLISTITEMREGOLE check constraint all", table);
-                        cmd.ExecuteNonQuery();
-                        cmd.CommandText = string.Format("alter table CHECKLISTESAMI check constraint all", table);
-                        cmd.ExecuteNonQuery();
-                        cmd.CommandText = string.Format("alter table CODICICLASSIFICAZIONEDIAGNOST check constraint all", table);
-                        cmd.ExecuteNonQuery();
-                        cmd.CommandText = string.Format("alter table CHECKLISTITEM check constraint all", table);
-                        cmd.ExecuteNonQuery();
-                        logger.Log(Logger.Level.Debug, "Nocheck desativado");
+                        //cmd.CommandText = string.Format("alter table CHECKLIST check constraint all", table);
+                        //cmd.ExecuteNonQuery();
+                        //cmd.CommandText = string.Format("alter table CHECKLISTITEMREGOLE check constraint all", table);
+                        //cmd.ExecuteNonQuery();
+                        //cmd.CommandText = string.Format("alter table CHECKLISTESAMI check constraint all", table);
+                        //cmd.ExecuteNonQuery();
+                        //cmd.CommandText = string.Format("alter table CODICICLASSIFICAZIONEDIAGNOST check constraint all", table);
+                        //cmd.ExecuteNonQuery();
+                        //cmd.CommandText = string.Format("alter table CHECKLISTITEM check constraint all", table);
+                        //cmd.ExecuteNonQuery();
+                        //logger.Log(Logger.Level.Debug, "Nocheck desativado");
                     };
 
                     // COPIA PARA A TABELA DE DESTINO OS NOVOS VALORES OBTINOS NA FONTE //
@@ -286,6 +286,20 @@ namespace Synchronizer
                         catch (Exception e) { }
 
                         logger.Log(Logger.Level.Info, table + " Sincronizada com sucesso");
+
+                        cmd.CommandText = string.Format("alter table CHECKLIST check constraint all", table);
+                        cmd.ExecuteNonQuery();
+                        cmd.CommandText = string.Format("alter table CHECKLISTITEMREGOLE check constraint all", table);
+                        cmd.ExecuteNonQuery();
+                        cmd.CommandText = string.Format("alter table CHECKLISTESAMI check constraint all", table);
+                        cmd.ExecuteNonQuery();
+                        cmd.CommandText = string.Format("alter table CODICICLASSIFICAZIONEDIAGNOST check constraint all", table);
+                        cmd.ExecuteNonQuery();
+                        cmd.CommandText = string.Format("alter table CHECKLISTITEM check constraint all", table);
+                        cmd.ExecuteNonQuery();
+                        logger.Log(Logger.Level.Debug, "Nocheck desativado");
+
+
                     };
                     connDestino.Close();
                     connDestino.Dispose();
